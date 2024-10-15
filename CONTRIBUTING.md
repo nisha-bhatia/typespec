@@ -40,21 +40,21 @@ pnpm run watch
 **If you are not at the root of the repo you have to use `-w` option to specify you want to run the command for the workspace. `pnpm -w <command>`.**
 Those commands can be run on the workspace or in a specific package(`cd ./packages/<pkg>`).
 
-| Command                     | Description                                                                                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm build`                | Build                                                                                                                                                     |
-| `pnpm test`                 | Test                                                                                                                                                      |
-| `pnpm test:watch`           | Run test in watch mode(only when inside a package)                                                                                                        |
-| `pnpm watch`                | Build in watch mode, Starting this command will rebuild the typescript files on save.                                                                     |
-| `pnpm clean`                | Clean, sometimes there are ghost files left in the dist folder (common when renaming or deleting a TypeScript file), running this will get a clean state. |
-| `pnpm format:check`         | Validate files are formatted                                                                                                                              |
-| `pnpm gen-extern-signature` | Regenerate TypeScript signature for decorators(except compiler)                                                                                           |
-| `pnpm change add`           | Add a change description                                                                                                                                  |
-| `pnpm lint`                 | Run linters                                                                                                                                               |
-| `pnpm lint:fix`             | Fix autofixable issues                                                                                                                                    |
-| `pnpm regen-samples`        | Regen the samples(when the samples test fail)                                                                                                             |
-| `pnpm regen-docs`           | Regen the reference docs                                                                                                                                  |
-| `pnpm run setup:min`    `pnpm run format`       | Run the formatter to reformat all files                                                                                               |
+| Command                                | Description                                                                                                                                               |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm build`                           | Build                                                                                                                                                     |
+| `pnpm test`                            | Test                                                                                                                                                      |
+| `pnpm test:watch`                      | Run test in watch mode(only when inside a package)                                                                                                        |
+| `pnpm watch`                           | Build in watch mode, Starting this command will rebuild the typescript files on save.                                                                     |
+| `pnpm clean`                           | Clean, sometimes there are ghost files left in the dist folder (common when renaming or deleting a TypeScript file), running this will get a clean state. |
+| `pnpm format:check`                    | Validate files are formatted                                                                                                                              |
+| `pnpm gen-extern-signature`            | Regenerate TypeScript signature for decorators(except compiler)                                                                                           |
+| `pnpm change add`                      | Add a change description                                                                                                                                  |
+| `pnpm lint`                            | Run linters                                                                                                                                               |
+| `pnpm lint:fix`                        | Fix autofixable issues                                                                                                                                    |
+| `pnpm regen-samples`                   | Regen the samples(when the samples test fail)                                                                                                             |
+| `pnpm regen-docs`                      | Regen the reference docs                                                                                                                                  |
+| `pnpm run setup:min` `pnpm run format` | Run the formatter to reformat all files                                                                                                                   |
 
 ### Verbose test logging
 
