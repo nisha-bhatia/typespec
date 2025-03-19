@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
@@ -20,6 +23,8 @@ namespace Azure.ClientSdk.Analyzers
             defaultSeverity: DiagnosticSeverity.Error,
             isEnabledByDefault: true);
 
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } = ImmutableArray.Create(VersionMismatchRule);
+
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
@@ -29,23 +34,27 @@ namespace Azure.ClientSdk.Analyzers
 
         public void Analyze(SymbolAnalysisContext context)
         {
-            var clientModelReference = context.Compilation.ReferencedAssemblyNames
-                .FirstOrDefault(a => a.Name.Equals("Microsoft.TypeSpec.Generator.ClientModel", StringComparison.OrdinalIgnoreCase));
+            // var expected = //comes from package.json, get location of csproj that you're built from then do relative directory to package.json
+            // // look for http-client-csharp dependency and get version from there
+            // //var actual comes from package reference in this context
+            // var actual = context.Compilation.ReferencedAssemblyNames.FirstOrDefault(a => a.Name.Equals("Microsoft.TypeSpec.Generator.ClientModel", StringComparison.OrdinalIgnoreCase)).Version;
+            Console.WriteLine("Analyze method called");
+            // var clientModelVersion = context.Compilation.ReferencedAssemblyNames
+            //     .FirstOrDefault(a => a.Name.Equals("Microsoft.TypeSpec.Generator.ClientModel", StringComparison.OrdinalIgnoreCase));
+            // var emitterVersion = context.Compilation.ReferencedAssemblyNames
+            //     .FirstOrDefault(a => a.Name.Equals("Microsoft.TypeSpec.Generator.Emitter", StringComparison.OrdinalIgnoreCase));
 
-            var mgcReference = context.Compilation.ReferencedAssemblyNames
-                .FirstOrDefault(a => a.Name.Equals("Microsoft.TypeSpec.Generator", StringComparison.OrdinalIgnoreCase));
+            // if (clientModelReference != null && mgcReference != null)
+            // {
+            //     var clientModelVersion = clientModelReference.Version;
+            //     var mgcVersion = mgcReference.Version;
 
-            if (clientModelReference != null && mgcReference != null)
-            {
-                var clientModelVersion = clientModelReference.Version;
-                var mgcVersion = mgcReference.Version;
-
-                if (clientModelVersion != mgcVersion)
-                {
-                    var diagnostic = Diagnostic.Create(VersionMismatchRule, Location.None, clientModelVersion, mgcVersion);
-                    context.RegisterCompilationEndAction(compilationContext => compilationContext.ReportDiagnostic(diagnostic));
-                }
-            }
+            //     if (clientModelVersion != mgcVersion)
+            //     {
+            //         var diagnostic = Diagnostic.Create(VersionMismatchRule, Location.None, clientModelVersion, mgcVersion);
+            //         context.RegisterCompilationEndAction(compilationContext => compilationContext.ReportDiagnostic(diagnostic));
+            //     }
+            // }
         }
     }
 }
