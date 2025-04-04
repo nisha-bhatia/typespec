@@ -1,7 +1,14 @@
 // Copyright (c) Microsoft Corporation
 // Licensed under the MIT license.
 
-import { ModelProperty, NoTarget, Type, compilerAssert } from "@typespec/compiler";
+import {
+  ModelProperty,
+  NoTarget,
+  Type,
+  compilerAssert,
+  isArrayModelType,
+  isRecordModelType,
+} from "@typespec/compiler";
 import {
   HttpOperation,
   HttpOperationParameter,
@@ -12,7 +19,6 @@ import {
 } from "@typespec/http";
 import { createOrGetModuleForNamespace } from "../../common/namespace.js";
 import { emitTypeReference, isValueLiteralType } from "../../common/reference.js";
-import { parseTemplateForScalar } from "../../common/scalar.js";
 import {
   SerializableType,
   isSerializationRequired,
@@ -33,6 +39,7 @@ import { emitMultipart, emitMultipartLegacy } from "./multipart.js";
 
 import { module as headerHelpers } from "../../../generated-defs/helpers/header.js";
 import { module as httpHelpers } from "../../../generated-defs/helpers/http.js";
+import { getJsScalar } from "../../common/scalar.js";
 import { requiresJsonSerialization } from "../../common/serialization/json.js";
 
 const DEFAULT_CONTENT_TYPE = "application/json";
@@ -127,7 +134,7 @@ function* emitRawServerOperation(
 
   const queryParams: Extract<HttpOperationParameter, { type: "query" }>[] = [];
 
-  const parsedParams = new Set<ModelProperty>();
+  const parsedParams = new Map<ModelProperty, HttpOperationParameter>();
 
   for (const parameter of operation.parameters.parameters) {
     const resolvedParameter =
@@ -140,11 +147,11 @@ function* emitRawServerOperation(
         throw new UnimplementedError("cookie parameters");
       case "query":
         queryParams.push(parameter);
-        parsedParams.add(resolvedParameter);
+        parsedParams.set(resolvedParameter, parameter);
         break;
       case "path":
         // Already handled above.
-        parsedParams.add(resolvedParameter);
+        parsedParams.set(resolvedParameter, parameter);
         break;
       default:
         throw new Error(
@@ -228,8 +235,47 @@ function* emitRawServerOperation(
 
         let value: string;
 
-        if (requiresJsonSerialization(ctx, body.type)) {
-          value = `${bodyTypeName}.fromJsonObject(JSON.parse(body))`;
+        if (requiresJsonSerialization(ctx, module, body.type)) {
+          if (body.type.kind === "Model" && isArrayModelType(ctx.program, body.type)) {
+            const innerTypeName = emitTypeReference(
+              ctx,
+              body.type.indexer.value,
+              body.type,
+              module,
+              { requireDeclaration: true },
+            );
+            yield `        const __arrayBody = JSON.parse(body);`;
+            yield `        if (!Array.isArray(__arrayBody)) {`;
+            yield `          ${names.ctx}.errorHandlers.onInvalidRequest(`;
+            yield `            ${names.ctx},`;
+            yield `            ${JSON.stringify(operation.path)},`;
+            yield `            "expected JSON array in request body",`;
+            yield `          );`;
+            yield `          return reject();`;
+            yield `        }`;
+            value = `__arrayBody.map((item) => ${innerTypeName}.fromJsonObject(JSON.parse(item)))`;
+          } else if (body.type.kind === "Model" && isRecordModelType(ctx.program, body.type)) {
+            const innerTypeName = emitTypeReference(
+              ctx,
+              body.type.indexer.value,
+              body.type,
+              module,
+              { requireDeclaration: true },
+            );
+
+            yield `        const __recordBody = JSON.parse(body);`;
+            yield `        if (typeof __recordBody !== "object" || __recordBody === null) {`;
+            yield `          ${names.ctx}.errorHandlers.onInvalidRequest(`;
+            yield `            ${names.ctx},`;
+            yield `            ${JSON.stringify(operation.path)},`;
+            yield `            "expected JSON object in request body",`;
+            yield `          );`;
+            yield `          return reject();`;
+            yield `        }`;
+            value = `Object.fromEntries(Object.entries(__recordBody).map(([key, value]) => [key, ${innerTypeName}.fromJsonObject(value)]))`;
+          } else {
+            value = `${bodyTypeName}.fromJsonObject(JSON.parse(body))`;
+          }
         } else {
           value = `JSON.parse(body)`;
         }
@@ -274,6 +320,7 @@ function* emitRawServerOperation(
   for (const param of parameters) {
     let paramBaseExpression;
     const paramNameCase = parseCase(param.name);
+    const paramNameSafe = keywordSafe(paramNameCase.camelCase);
     const isBodyField = bodyFields.has(param.name) && bodyFields.get(param.name) === param.type;
     const isBodyExact = operation.parameters.body?.property === param;
     if (isBodyField) {
@@ -283,13 +330,17 @@ function* emitRawServerOperation(
     } else {
       const resolvedParameter = param.type.kind === "ModelProperty" ? param.type : param;
 
-      paramBaseExpression =
-        resolvedParameter.type.kind === "Scalar" && parsedParams.has(resolvedParameter)
-          ? parseTemplateForScalar(ctx, resolvedParameter.type).replace(
-              "{}",
-              paramNameCase.camelCase,
-            )
-          : paramNameCase.camelCase;
+      const httpOperationParam = parsedParams.get(resolvedParameter);
+
+      if (resolvedParameter.type.kind === "Scalar" && httpOperationParam) {
+        const jsScalar = getJsScalar(ctx, module, resolvedParameter.type, resolvedParameter);
+
+        const encoder = jsScalar.http[httpOperationParam.type];
+
+        paramBaseExpression = encoder.decode(paramNameSafe);
+      } else {
+        paramBaseExpression = paramNameSafe;
+      }
     }
 
     if (param.optional) {
@@ -300,7 +351,7 @@ function* emitRawServerOperation(
     }
   }
 
-  const paramLines = requiredParams.map((p) => `${p},`);
+  const paramLines = requiredParams.map((p) => `${keywordSafe(p)},`);
 
   if (hasOptions) {
     paramLines.push(
@@ -360,7 +411,7 @@ function* emitResultProcessing(
     // Single target type
     yield* emitResultProcessingForType(ctx, names, t, module);
   } else {
-    const codeTree = differentiateUnion(ctx, t);
+    const codeTree = differentiateUnion(ctx, module, t);
 
     yield* writeCodeTree(ctx, codeTree, {
       subject: names.result,
@@ -452,7 +503,12 @@ function* emitResultProcessingForType(
 
   if (body) {
     const bodyCase = parseCase(body.name);
-    const serializationRequired = isSerializationRequired(ctx, body.type, "application/json");
+    const serializationRequired = isSerializationRequired(
+      ctx,
+      module,
+      body.type,
+      "application/json",
+    );
     requireSerialization(ctx, body.type, "application/json");
 
     yield `${names.ctx}.response.setHeader("content-type", "application/json");`;
@@ -469,7 +525,12 @@ function* emitResultProcessingForType(
     if (allMetadataIsRemoved) {
       yield `${names.ctx}.response.end();`;
     } else {
-      const serializationRequired = isSerializationRequired(ctx, target, "application/json");
+      const serializationRequired = isSerializationRequired(
+        ctx,
+        module,
+        target,
+        "application/json",
+      );
       requireSerialization(ctx, target, "application/json");
 
       yield `${names.ctx}.response.setHeader("content-type", "application/json");`;
@@ -501,6 +562,7 @@ function* emitHeaderParamBinding(
   parameter: Extract<HttpOperationParameter, { type: "header" }>,
 ): Iterable<string> {
   const nameCase = parseCase(parameter.param.name);
+  const name = keywordSafe(nameCase.camelCase);
   const headerName = parameter.name.toLowerCase();
 
   // See https://nodejs.org/api/http.html#messageheaders
@@ -509,10 +571,10 @@ function* emitHeaderParamBinding(
 
   const assertion = canBeArrayType ? "" : " as string | undefined";
 
-  yield `const ${nameCase.camelCase} = ${names.ctx}.request.headers[${JSON.stringify(headerName)}]${assertion};`;
+  yield `const ${name} = ${names.ctx}.request.headers[${JSON.stringify(headerName)}]${assertion};`;
 
   if (!parameter.param.optional) {
-    yield `if (${nameCase.camelCase} === undefined) {`;
+    yield `if (${name} === undefined) {`;
     // prettier-ignore
     yield `  return ${names.ctx}.errorHandlers.onInvalidRequest(${names.ctx}, ${JSON.stringify(operation.path)}, "missing required header '${headerName}'");`;
     yield "}";
@@ -536,11 +598,13 @@ function* emitQueryParamBinding(
 ): Iterable<string> {
   const nameCase = parseCase(parameter.param.name);
 
+  const name = keywordSafe(nameCase.camelCase);
+
   // UrlSearchParams annoyingly returns null for missing parameters instead of undefined.
-  yield `const ${nameCase.camelCase} = ${names.queryParams}.get(${JSON.stringify(parameter.name)}) ?? undefined;`;
+  yield `const ${name} = ${names.queryParams}.get(${JSON.stringify(parameter.name)}) ?? undefined;`;
 
   if (!parameter.param.optional) {
-    yield `if (!${nameCase.camelCase}) {`;
+    yield `if (!${name}) {`;
     yield `  return ${names.ctx}.errorHandlers.onInvalidRequest(${names.ctx}, ${JSON.stringify(operation.path)}, "missing required query parameter '${parameter.name}'");`;
     yield "}";
     yield "";
