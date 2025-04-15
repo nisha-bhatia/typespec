@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.TypeSpec.Generato
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProjects.Spector.Tests", "TestProjects\Spector.Tests\TestProjects.Spector.Tests.csproj", "{759C04FA-D7A0-49EE-9990-70C87C34413E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Microsoft.TypeSpec.Generator.Analyzer", "Microsoft.TypeSpec.Generator.Analyzer\Microsoft.TypeSpec.Generator.Analyzer.csproj", "{1FFE7C55-A2A3-995E-8830-086A4365EA93}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -81,8 +83,15 @@ Global
 		{759C04FA-D7A0-49EE-9990-70C87C34413E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{759C04FA-D7A0-49EE-9990-70C87C34413E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{759C04FA-D7A0-49EE-9990-70C87C34413E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1FFE7C55-A2A3-995E-8830-086A4365EA93}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1FFE7C55-A2A3-995E-8830-086A4365EA93}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1FFE7C55-A2A3-995E-8830-086A4365EA93}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1FFE7C55-A2A3-995E-8830-086A4365EA93}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {21BB2568-B45A-40F8-BFCD-0F6C377C9E8F}
 	EndGlobalSection
 EndGlobal
